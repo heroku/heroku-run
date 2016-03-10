@@ -6,5 +6,6 @@ exports.topics = [{
 }];
 
 exports.commands = [
-  require('./commands/run')
+  require('./commands/run'),
+  require('./commands/foo')
 ];
