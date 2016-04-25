@@ -50,22 +50,16 @@ class Run {
 
   startDyno () {
     let command = this.flags['exit-code'] ? `${this.command}; echo heroku-command-exit-status $?` : this.command;
-
-    let body = {
+    return this.heroku.request({
+      path: `/apps/${this.app}/dynos`,
+      method: 'POST',
+      body: {
         command:  command,
         attach:   true,
         size:     this.flags.size,
         env:      this.env(),
-    };
-
-    if (this.flags['no-tty']) {
-      body.force_no_tty = true;
-    }
-
-    return this.heroku.request({
-      path: `/apps/${this.app}/dynos`,
-      method: 'POST',
-      body: body
+        force_no_tty: this.flags['no-tty']
+      }
     });
   }
 
