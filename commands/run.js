@@ -50,15 +50,22 @@ class Run {
 
   startDyno () {
     let command = this.flags['exit-code'] ? `${this.command}; echo heroku-command-exit-status $?` : this.command;
-    return this.heroku.request({
-      path: `/apps/${this.app}/dynos`,
-      method: 'POST',
-      body: {
+
+    let body = {
         command:  command,
         attach:   true,
         size:     this.flags.size,
         env:      this.env(),
-      }
+    };
+
+    if (this.flags['no-tty']) {
+      body.force_no_tty = true;
+    }
+
+    return this.heroku.request({
+      path: `/apps/${this.app}/dynos`,
+      method: 'POST',
+      body: body
     });
   }
 
@@ -149,6 +156,7 @@ Examples:
     {name: 'size', char: 's', description: 'dyno size', hasValue: true},
     {name: 'exit-code', description: 'passthrough the exit code of the remote command'},
     {name: 'env', description: "environment variables to set (use ';' to split multiple vars)", hasValue: true},
+    {name: 'no-tty', description: "force the command to not run in a tty", hasValue: false},
   ],
   run: cli.command((context, heroku) => (new Run()).run(context, heroku))
 };
