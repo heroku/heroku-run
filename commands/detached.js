@@ -37,9 +37,9 @@ module.exports = {
   help: `
 Example:
 
-  $ heroku run:detached ls
-  Running ls on app [detached]... up, run.1
-  Run heroku logs -a app -p run.1 to view the output.
+    $ heroku run:detached ls
+    Running ls on app [detached]... up, run.1
+    Run heroku logs -a app -p run.1 to view the output.
 `,
   variableArgs: true,
   needsAuth: true,
