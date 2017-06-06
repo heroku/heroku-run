@@ -1,7 +1,6 @@
-'use strict'
+// @flow
 
 let co = require('co')
-let cli = require('heroku-cli-util')
 let helpers = require('../lib/helpers')
 let Dyno = require('../lib/dyno')
 
