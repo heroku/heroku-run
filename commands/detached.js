@@ -34,7 +34,7 @@ module.exports = {
   topic: 'run',
   command: 'detached',
   description: 'run a detached dyno, where output is sent to your logs',
-  help: `#### Example:
+  help: `Example:
 
     $ heroku run:detached ls
     Running ls on app [detached]... up, run.1
