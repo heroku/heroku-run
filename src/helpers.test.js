@@ -1,8 +1,6 @@
-'use strict'
-/* globals describe it */
+// @flow
 
-const helpers = require('../../lib/helpers')
-const expect = require('unexpected')
+import {buildCommand} from './helpers'
 
 describe('helpers.buildCommand()', () => {
   [
@@ -12,8 +10,8 @@ describe('helpers.buildCommand()', () => {
     {args: ['echo', '{"foo": "bar"}'], expected: 'echo "{\\"foo\\": \\"bar\\"}"'},
     {args: ['echo', '{"foo":"bar"}'], expected: 'echo "{\\"foo\\":\\"bar\\"}"'}
   ].forEach(example => {
-    it(`parses \`${example.args.join(' ')}\` as ${example.expected}`, () => {
-      expect(helpers.buildCommand(example.args), 'to equal', example.expected)
+    test(`parses \`${example.args.join(' ')}\` as ${example.expected}`, () => {
+      expect(buildCommand(example.args)).toEqual(example.expected)
     })
   })
 })

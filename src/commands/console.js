@@ -1,31 +1,30 @@
 // @flow
 
-let co = require('co')
-let helpers = require('../lib/helpers')
-let Dyno = require('../lib/dyno')
+import {buildCommand} from '../helpers'
+import Dyno from '../dyno'
+import {Command, flags} from 'cli-engine-heroku'
 
-function * run (context, heroku) {
-  let opts = {
-    heroku: heroku,
-    app: context.app,
-    command: helpers.buildCommand(['console']),
-    size: context.flags.size,
-    env: context.flags.env,
-    attach: true
+export default class RunConsole extends Command {
+  static topic = 'console'
+  static hidden = true
+  static flags = {
+    app: flags.app(),
+    remote: flags.remote(),
+    size: flags.string({char: 's', description: 'dyno size'}),
+    env: flags.string({char: 'e', description: "environment variables to set (use ';' to split multiple vars)"})
   }
 
-  let dyno = new Dyno(opts)
-  yield dyno.start()
-}
-
-module.exports = {
-  topic: 'console',
-  hidden: true,
-  needsAuth: true,
-  needsApp: true,
-  flags: [
-    {name: 'size', char: 's', description: 'dyno size', hasValue: true},
-    {name: 'env', char: 'e', description: "environment variables to set (use ';' to split multiple vars)", hasValue: true}
-  ],
-  run: cli.command(co.wrap(run))
+  async run () {
+    let apps = await this.heroku.get('/apps/jkmparanoid/config-vars')
+    console.dir(apps)
+    // const dyno = new Dyno({
+    //   heroku: this.legacyHerokuClient,
+    //   app: this.flags.app,
+    //   command: buildCommand(['console']),
+    //   size: context.flags.size,
+    //   env: context.flags.env,
+    //   attach: true
+    // })
+    // await dyno.start()
+  }
 }

@@ -1,8 +1,8 @@
-'use strict'
+// @flow
 
-let cli = require('heroku-cli-util')
+import type Output from 'cli-engine-command/lib/output'
 
-function buildCommand (args) {
+export function buildCommand (args: string[]) {
   if (args.length === 1) {
     // do not add quotes around arguments if there is only one argument
     // `heroku run "rake test"` should work like `heroku run rake test`
@@ -18,17 +18,15 @@ function buildCommand (args) {
   return cmd.trim()
 }
 
-function buildEnvFromFlag (flag) {
+export function buildEnvFromFlag (flag: string, out: ?Output) {
   let env = {}
   for (let v of flag.split(';')) {
     let m = v.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/)
-    if (m) env[m[1]] = m[2]
-    else cli.warn(`env flag ${v} appears invalid. Avoid using ';' in values.`)
+    if (m) {
+      env[m[1]] = m[2]
+    } else {
+      if (out) out.warn(`env flag ${v} appears invalid. Avoid using ';' in values.`)
+    }
   }
   return env
-}
-
-module.exports = {
-  buildCommand,
-  buildEnvFromFlag
 }
