@@ -1,29 +1,55 @@
-'use strict'
+// @flow
 
-let tls = require('tls')
-let url = require('url')
-let tty = require('tty')
-let stream = require('stream')
-let helpers = require('../lib/helpers')
+import tls from 'tls'
+import url from 'url'
+import tty from 'tty'
+import stream from 'stream'
+import {buildEnvFromFlag} from './helpers'
+import {type APIClient} from 'cli-engine-heroku'
+import type Output from 'cli-engine-command/lib/output'
 
 const http = require('https')
 const net = require('net')
 const spawn = require('child_process').spawn
 
+export type DynoOptions = {
+  heroku: APIClient,
+  'exit-code'?: boolean,
+  command: string,
+  app: string,
+  attach: ?boolean,
+  size: ?string,
+  'no-tty'?: boolean,
+  env?: {[k: string]: string},
+  showStatus?: boolean,
+  output: Output,
+  dyno?: string
+}
+
 /** Represents a dyno process */
-class Dyno {
+export default class Dyno {
+  opts: DynoOptions
+  heroku: APIClient
+  out: Output
+  dyno: any
+  uri: any
+  resolve: () => void
+  reject: (string) => void
+  unpipeStdin: ?() => void
+
   /**
    * @param {Object} options
    * @param {Object} options.heroku - instance of heroku-client
    * @param {boolean} options.exit-code - get exit code from process
    * @param {string} options.command - command to run
    * @param {string} options.app - app to run dyno on
-   * @param {string} options.attach - attach to dyno
+   * @param {boolean} options.attach - attach to dyno
    * @param {string} options.size - size of dyno to create
    * @param {boolean} options.no-tty - force not to use a tty
    * @param {Object} options.env - dyno environment variables
   */
-  constructor (opts) {
+  constructor (opts: DynoOptions) {
+    this.out = opts.output
     this.opts = opts
     this.heroku = opts.heroku
     if (this.opts.showStatus === undefined) this.opts.showStatus = true
@@ -33,35 +59,31 @@ class Dyno {
    * Starts the dyno
    * @returns {Promise} promise resolved when dyno process is created
    */
-  start () {
+  async start () {
+    let color = this.out.color
     let command = this.opts['exit-code'] ? `${this.opts.command}; echo "\uFFFF heroku-command-exit-status $?"` : this.opts.command
-    let start = this.heroku.request({
-      path: this.opts.dyno ? `/apps/${this.opts.app}/dynos/${this.opts.dyno}` : `/apps/${this.opts.app}/dynos`,
-      method: 'POST',
-      headers: {
-        Accept: this.opts.dyno ? 'application/vnd.heroku+json; version=3.run-inside' : 'application/vnd.heroku+json; version=3'
-      },
-      body: {
-        command: command,
-        attach: this.opts.attach,
-        size: this.opts.size,
-        env: this._env(),
-        force_no_tty: this.opts['no-tty']
-      }
-    })
-    .then(dyno => {
-      this.dyno = dyno
-      if (this.opts.attach || this.opts.dyno) {
-        if (this.dyno.name && this.opts.dyno === undefined) this.opts.dyno = this.dyno.name
-        return this.attach()
-      } else if (this.opts.showStatus) {
-        cli.action.done(this._status('done'))
-      }
-    })
-
     if (this.opts.showStatus) {
-      return cli.action(`Running ${cli.color.cyan.bold(this.opts.command)} on ${cli.color.app(this.opts.app)}`, {success: false}, start)
-    } else return start
+      this.out.action.start(`Running ${color.cyan.bold(this.opts.command)} on ${color.app(this.opts.app)}`)
+    }
+    this.dyno = await this.heroku.post(
+      this.opts.dyno ? `/apps/${this.opts.app}/dynos/${this.opts.dyno}` : `/apps/${this.opts.app}/dynos`, {
+        headers: {
+          Accept: this.opts.dyno ? 'application/vnd.heroku+json; version=3.run-inside' : 'application/vnd.heroku+json; version=3'
+        },
+        body: {
+          command: command,
+          attach: this.opts.attach,
+          size: this.opts.size,
+          env: this._env(),
+          force_no_tty: this.opts['no-tty']
+        }
+      })
+    if (this.opts.attach || this.opts.dyno) {
+      if (this.dyno.name && this.opts.dyno === undefined) this.opts.dyno = this.dyno.name
+      return this.attach()
+    } else if (this.opts.showStatus) {
+      this.out.action.stop(this._status('done'))
+    }
   }
 
   /**
@@ -81,13 +103,14 @@ class Dyno {
       this.resolve = resolve
       this.reject = reject
 
-      if (this.opts.showStatus) cli.action.status(this._status('starting'))
+      if (this.opts.showStatus) this.out.action.status = this._status('starting')
+      // !(process.env.HEROKU_SSL_VERIFY === 'disable' || host.endsWith('herokudev.com'))
       let c = tls.connect(this.uri.port, this.uri.hostname, {rejectUnauthorized: this.heroku.options.rejectUnauthorized})
       c.setTimeout(1000 * 60 * 20)
       c.setEncoding('utf8')
       c.on('connect', () => {
         c.write(this.uri.path.substr(1) + '\r\n', () => {
-          if (this.opts.showStatus) cli.action.status(this._status('connecting'))
+          if (this.opts.showStatus) this.out.action.status = this._status('connecting')
         })
       })
       c.on('data', this._readData(c))
@@ -100,25 +123,19 @@ class Dyno {
     })
   }
 
-  _ssh () {
+  async _ssh () {
     const interval = 30 * 1000
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-    return this.heroku.request({
-      path: `/apps/${this.opts.app}/dynos/${this.opts.dyno}`,
-      method: 'GET',
-      headers: {Accept: 'application/vnd.heroku+json; version=3'}
-    })
-    .then(dyno => {
-      this.dyno = dyno
-      cli.action.done(this._status(this.dyno.state))
-
-      if (this.dyno.state === 'starting' || this.dyno.state === 'up') return this._connect()
-      else return wait(interval).then(this._ssh.bind(this))
-    })
-    .catch(() => {
+    try {
+      this.dyno = await this.heroku.get(`/apps/${this.opts.app}/dynos/${this.opts.dyno}`)
+    } catch (err) {
       return wait(interval).then(this._ssh.bind(this))
-    })
+    }
+    this.out.action.stop(this._status(this.dyno.state))
+
+    if (this.dyno.state === 'starting' || this.dyno.state === 'up') return this._connect()
+    else return wait(interval).then(this._ssh.bind(this))
   }
 
   _connect () {
@@ -161,9 +178,9 @@ class Dyno {
     const port = options.port
 
     if (this.opts.listen) {
-      cli.console.log(`listening on port ${host}:${port} for ssh client`)
+      this.out.log(`listening on port ${host}:${port} for ssh client`)
     } else {
-      spawn('ssh', [host, '-p', port, '-oStrictHostKeyChecking=no', '-oUserKnownHostsFile=/dev/null', '-oServerAliveInterval=20'], {
+      spawn('ssh', [host, '-p', port.toString(), '-oStrictHostKeyChecking=no', '-oUserKnownHostsFile=/dev/null', '-oServerAliveInterval=20'], {
         detached: false,
         stdio: 'inherit'
       })
@@ -171,26 +188,26 @@ class Dyno {
   }
 
   _env () {
-    let c = this.opts.env ? helpers.buildEnvFromFlag(this.opts.env) : {}
+    let c: {[k: string]: ?string} = this.opts.env ? buildEnvFromFlag(this.opts.env) : {}
     c.TERM = process.env.TERM
     if (tty.isatty(1)) {
-      c.COLUMNS = process.stdout.columns
-      c.LINES = process.stdout.rows
+      c.COLUMNS = (process.stdout: any).columns
+      c.LINES = (process.stdout: any).rows
     }
     return c
   }
 
-  _status (status) {
+  _status (status: string) {
     let size = this.dyno.size ? ` (${this.dyno.size})` : ''
     return `${status}, ${this.dyno.name || this.opts.dyno}${size}`
   }
 
-  _readData (c) {
+  _readData (c: stream$Writable) {
     let firstLine = true
-    return data => {
+    return (data: string) => {
       // discard first line
       if (firstLine) {
-        if (this.opts.showStatus) cli.action.done(this._status('up'))
+        if (this.opts.showStatus) this.out.action.stop(this._status('up'))
         firstLine = false
         this._readStdin(c)
         return
@@ -202,7 +219,7 @@ class Dyno {
         let code = parseInt(exitCode[1])
         if (code === 0) this.resolve()
         else {
-          let err = new Error(`Process exited with code ${cli.color.red(code)}`)
+          let err: any = new Error(`Process exited with code ${this.out.color.red(code)}`)
           err.exitCode = code
           this.reject(err)
         }
@@ -212,20 +229,19 @@ class Dyno {
     }
   }
 
-  _readStdin (c) {
+  _readStdin (c: stream$Writable) {
     let stdin = process.stdin
     stdin.setEncoding('utf8')
-    if (stdin.unref) stdin.unref()
+    if (stdin.unref) (stdin: any).unref()
     if (tty.isatty(0)) {
-      stdin.setRawMode(true)
+      ;(stdin: any).setRawMode(true)
       stdin.pipe(c)
       let sigints = []
       stdin.on('data', function (c) {
         if (c === '\u0003') sigints.push(new Date())
         sigints = sigints.filter(d => d > new Date() - 1000)
         if (sigints.length >= 4) {
-          cli.error('forcing dyno disconnect')
-          process.exit(1)
+          this.out.error('forcing dyno disconnect')
         }
       })
     } else {
@@ -237,5 +253,3 @@ class Dyno {
     }
   }
 }
-
-module.exports = Dyno

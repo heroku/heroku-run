@@ -15,16 +15,15 @@ export default class RunConsole extends Command {
   }
 
   async run () {
-    let apps = await this.heroku.get('/apps/jkmparanoid/config-vars')
-    console.dir(apps)
-    // const dyno = new Dyno({
-    //   heroku: this.legacyHerokuClient,
-    //   app: this.flags.app,
-    //   command: buildCommand(['console']),
-    //   size: context.flags.size,
-    //   env: context.flags.env,
-    //   attach: true
-    // })
-    // await dyno.start()
+    const dyno = new Dyno({
+      output: this.out,
+      heroku: this.heroku,
+      app: this.flags.app,
+      command: buildCommand(['console']),
+      size: this.flags.size,
+      env: this.flags.env,
+      attach: true
+    })
+    await dyno.start()
   }
 }
