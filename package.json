@@ -1,10 +1,20 @@
 {
   "name": "@heroku-cli/plugin-run",
   "description": "Heroku CLI plugin to run one-off dyno processes.",
-  "version": "3.5.10",
+  "version": "3.5.13",
   "author": "Jeff Dickey (@dickeyxxx)",
   "bugs": {
     "url": "https://github.com/heroku/heroku-run/issues"
+  },
+  "cli-engine": {
+    "topics": {
+      "run": {
+        "description": "run a one-off process inside a Heroku dyno"
+      },
+      "logs": {
+        "description": "display recent log output"
+      }
+    }
   },
   "dependencies": {
     "cli-engine-heroku": "^5.0.4",
@@ -15,8 +25,8 @@
     "shellwords": "^0.1.1"
   },
   "devDependencies": {
-    "@anycli/dev-cli": "^0.3.10",
-    "@anycli/plugin-legacy": "^0.1.4",
+    "@oclif/dev-cli": "^1.2.17",
+    "@oclif/plugin-legacy": "^1.0.4",
     "fixture-stdout": "0.2.1",
     "mocha": "^5.0.1",
     "mocha-junit-reporter": "1.17.0",
@@ -28,6 +38,7 @@
     "unexpected": "^10.37.2"
   },
   "files": [
+    ".oclif.manifest.json",
     "lib",
     "index.js",
     "commands"
@@ -43,9 +54,9 @@
     "url": "https://github.com/heroku/heroku-run.git"
   },
   "scripts": {
-    "postpublish": "rm -f .anycli.manifest.json",
-    "prepublishOnly": "anycli-dev manifest",
+    "postpublish": "rm .oclif.manifest.json",
+    "prepublishOnly": "oclif-dev manifest",
     "test": "nyc mocha && standard",
-    "version": "anycli-dev readme && git add README.md"
+    "version": "oclif-dev readme && git add README.md"
   }
 }
