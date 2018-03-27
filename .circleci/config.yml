@@ -1,0 +1,17 @@
+---
+version: 2
+jobs:
+  node-latest: &test
+    docker:
+      - image: node:latest
+    working_directory: ~/cli
+    steps:
+      - checkout
+      - run: yarn
+      - run: yarn test
+
+workflows:
+  version: 2
+  heroku-run:
+    jobs:
+      - node-latest
