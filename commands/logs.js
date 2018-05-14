@@ -9,7 +9,7 @@ async function run (context, heroku) {
   await logDisplayer(heroku, {
     app: context.app,
     dyno: context.flags.dyno || context.flags.ps,
-    lines: context.flags.num || 100,
+    lines: context.flags.num ? parseInt(context.flags.num) : 100,
     tail: context.flags.tail,
     source: context.flags.source
   })
